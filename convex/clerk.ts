@@ -10,9 +10,9 @@ import { parseClerkSubscription } from "../lib/clerk-billing";
 export const fulfill = internalAction({
   args: {
     headers: v.object({
-      "svix-id": v.string(),
-      "svix-timestamp": v.string(),
-      "svix-signature": v.string(),
+      id: v.string(),
+      timestamp: v.string(),
+      signature: v.string(),
     }),
     payload: v.string(),
   },
@@ -20,7 +20,11 @@ export const fulfill = internalAction({
   returns: v.any(),
   handler: async (ctx, args) => {
     const wh = new Webhook(process.env.CLERK_CONVEX_WEBHOOK_SECRET as string);
-    const payload = wh.verify(args.payload, args.headers) as WebhookEvent;
+    const payload = wh.verify(args.payload, {
+      "svix-id": args.headers.id,
+      "svix-timestamp": args.headers.timestamp,
+      "svix-signature": args.headers.signature,
+    }) as WebhookEvent;
     const snapshot = parseClerkSubscription(payload);
     if (snapshot) await ctx.runMutation(internal.subscriptions.applyClerkSnapshot, snapshot);
     return payload;
