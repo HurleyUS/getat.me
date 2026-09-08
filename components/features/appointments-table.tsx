@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,16 +88,17 @@ type Appointment = {
 
 export function AppointmentsTable() {
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const { toast } = useToast();
   const appointments = useQuery(
     api.booking.getAllAppointments,
-    user?.id ? { userId: user.id } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id } : "skip",
   ) as Appointment[] | undefined;
 
   // Get user handle for profile URL
   const userProfile = useQuery(
     api.users.getCurrentUserProfile,
-    user?.id ? { userId: user.id } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id } : "skip",
   );
 
   const cancelAppointment = useMutation(api.booking.cancelAppointment);

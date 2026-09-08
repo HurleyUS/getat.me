@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -15,9 +15,10 @@ import FeatureTitle from "./feature-title";
 
 export function AnalyticsDashboard() {
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const analytics = useQuery(
     api.analytics.getAnalytics,
-    user?.id ? { userId: user.id, days: 30 } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id, days: 30 } : "skip",
   );
 
   if (!user?.id) {

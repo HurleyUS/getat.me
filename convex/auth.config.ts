@@ -1,7 +1,7 @@
 const config = {
   providers: [
     {
-      domain: "https://wry-goldfinch-238.accounts.dev/",
+      domain: process.env.CLERK_JWT_ISSUER_DOMAIN ?? "https://clerk.getat.me",
       applicationID: "convex",
     },
   ],

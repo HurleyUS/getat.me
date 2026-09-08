@@ -3,6 +3,19 @@ import { z } from "zod";
 import { defineSchema, defineTable } from "convex/server";
 
 export default defineSchema({
+  clerkBillingSnapshots: defineTable({
+    userId: v.string(),
+    subscriptionId: v.string(),
+    updatedAt: v.number(),
+    items: v.array(
+      v.object({
+        id: v.string(),
+        planId: v.string(),
+        status: v.string(),
+        periodEnd: v.union(v.number(), v.null()),
+      }),
+    ),
+  }).index("by_userId", ["userId"]),
   users: defineTable({
     userId: v.string(),
     handle: v.optional(v.string()),

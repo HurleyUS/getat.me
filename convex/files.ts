@@ -1,10 +1,12 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireOwner } from "../lib/convex-auth";
 
 export const generateUploadUrl = mutation({
   args: {},
   returns: v.object({ url: v.string() }),
   handler: async (ctx) => {
+    await requireOwner(ctx);
     const url = await ctx.storage.generateUploadUrl();
     return { url };
   },

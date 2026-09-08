@@ -2,7 +2,7 @@
 
 import { useUser } from "@clerk/nextjs";
 import { SignInButton } from "@clerk/nextjs";
-import { usePaginatedQuery, useMutation } from "convex/react";
+import { usePaginatedQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ interface LiveChatWidgetProps {
 
 export function LiveChatWidget({ profileUserId, profileHandle }: LiveChatWidgetProps) {
   const { user, isSignedIn } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -33,7 +34,9 @@ export function LiveChatWidget({ profileUserId, profileHandle }: LiveChatWidgetP
     status: paginationStatus,
   } = usePaginatedQuery(
     api.messages.getMessages,
-    user?.id && isSignedIn ? { userId1: user.id, userId2: profileUserId } : "skip",
+    isAuthenticated && user?.id && isSignedIn
+      ? { userId1: user.id, userId2: profileUserId }
+      : "skip",
     { initialNumItems: 50 },
   );
 
@@ -51,7 +54,7 @@ export function LiveChatWidget({ profileUserId, profileHandle }: LiveChatWidgetP
 
   // Mark messages as read when chat is opened
   useEffect(() => {
-    if (isOpen && isSignedIn && user?.id) {
+    if (isAuthenticated && isOpen && isSignedIn && user?.id) {
       markAsRead({
         userId1: user.id,
         userId2: profileUserId,
@@ -60,7 +63,7 @@ export function LiveChatWidget({ profileUserId, profileHandle }: LiveChatWidgetP
         // Ignore errors
       });
     }
-  }, [isOpen, isSignedIn, user?.id, profileUserId, markAsRead]);
+  }, [isAuthenticated, isOpen, isSignedIn, user?.id, profileUserId, markAsRead]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,3 +1,4 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -6,6 +7,7 @@ export const getReferralsSent = query({
     userId: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     return await ctx.db
       .query("referrals")
       .withIndex("by_referrerUserId", (q) => q.eq("referrerUserId", args.userId))
@@ -19,6 +21,7 @@ export const getReferralsReceived = query({
     userId: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     return await ctx.db
       .query("referrals")
       .withIndex("by_referredUserId", (q) => q.eq("referredUserId", args.userId))
@@ -37,6 +40,7 @@ export const createReferral = mutation({
     message: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.referrerUserId);
     return await ctx.db.insert("referrals", {
       referrerUserId: args.referrerUserId,
       referredUserId: args.referredUserId,

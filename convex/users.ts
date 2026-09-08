@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { getHandleError } from "../lib/handles";
 import {
   ActionCtx,
   MutationCtx,
@@ -8,6 +9,30 @@ import {
   mutation,
   query,
 } from "./_generated/server";
+
+const profileValidator = v.object({
+  _id: v.id("users"),
+  _creationTime: v.number(),
+  userId: v.string(),
+  handle: v.optional(v.string()),
+  first: v.optional(v.string()),
+  last: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  email: v.optional(v.string()),
+  avatar: v.optional(v.id("_storage")),
+  cover: v.optional(v.id("_storage")),
+  bio: v.optional(v.string()),
+  theme: v.optional(v.string()),
+  brandColor: v.optional(v.string()),
+  fontFamily: v.optional(v.string()),
+  buttonStyle: v.optional(v.string()),
+  backgroundType: v.optional(v.string()),
+  backgroundColor: v.optional(v.string()),
+  backgroundImage: v.optional(v.id("_storage")),
+  subscriptionPlan: v.optional(v.string()),
+  avatarUrl: v.optional(v.string()),
+  coverUrl: v.optional(v.string()),
+});
 
 export async function getCurrentUser(ctx: QueryCtx | MutationCtx | ActionCtx, id?: boolean) {
   const user = await ctx.auth.getUserIdentity();
@@ -72,26 +97,7 @@ export const getUserByHandle = query({
   args: {
     handle: v.string(),
   },
-  returns: v.union(
-    v.object({
-      _id: v.id("users"),
-      _creationTime: v.number(),
-      userId: v.string(),
-      handle: v.optional(v.string()),
-      first: v.optional(v.string()),
-      last: v.optional(v.string()),
-      phone: v.optional(v.string()),
-      email: v.optional(v.string()),
-      avatar: v.optional(v.id("_storage")),
-      cover: v.optional(v.id("_storage")),
-      bio: v.optional(v.string()),
-      theme: v.optional(v.string()),
-      avatarUrl: v.optional(v.string()),
-      coverUrl: v.optional(v.string()),
-      subscriptionPlan: v.optional(v.string()),
-    }),
-    v.null(),
-  ),
+  returns: v.union(profileValidator, v.null()),
   handler: async (ctx, args) => {
     const profile = await ctx.db
       .query("users")
@@ -188,6 +194,11 @@ export const createUser = internalMutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+    if (existing) return existing._id;
     return await ctx.db.insert("users", args);
   },
 });
@@ -207,6 +218,25 @@ export const createUserPublic = mutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== args.userId) {
+      throw new Error("You can only create your own profile.");
+    }
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+    if (existing) return existing._id;
+    if (args.handle !== undefined) {
+      args.handle = args.handle.trim().toLowerCase();
+      const handleError = getHandleError(args.handle);
+      if (handleError) throw new Error(handleError);
+      const claimed = await ctx.db
+        .query("users")
+        .withIndex("by_handle", (q) => q.eq("handle", args.handle))
+        .first();
+      if (claimed) throw new Error("Handle is already taken");
+    }
     return await ctx.db.insert("users", args);
   },
 });
@@ -229,9 +259,24 @@ export const updateUser = mutation({
     backgroundType: v.optional(v.string()),
     backgroundColor: v.optional(v.string()),
     backgroundImage: v.optional(v.id("_storage")),
-    subscriptionPlan: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== args.userId) {
+      throw new Error("You can only update your own profile.");
+    }
+    if (args.handle !== undefined) {
+      args.handle = args.handle.trim().toLowerCase();
+      const handleError = getHandleError(args.handle);
+      if (handleError) throw new Error(handleError);
+      const claimed = await ctx.db
+        .query("users")
+        .withIndex("by_handle", (q) => q.eq("handle", args.handle))
+        .first();
+      if (claimed && claimed.userId !== identity.subject)
+        throw new Error("Handle is already taken");
+    }
     // we won't update the userId so clone args and drop it
     const prev = await ctx.db
       .query("users")
@@ -243,7 +288,8 @@ export const updateUser = mutation({
     }
 
     const user = { ...prev, ...args };
-    return await ctx.db.patch(prev._id, user);
+    await ctx.db.patch(prev._id, user);
+    return null;
   },
 });
 
@@ -292,7 +338,12 @@ export const deleteUser = mutation({
   args: {
     userId: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== args.userId) {
+      throw new Error("You can only delete your own profile.");
+    }
     const user = await ctx.db
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -302,7 +353,8 @@ export const deleteUser = mutation({
       throw new Error("User not found");
     }
 
-    return await ctx.db.delete(user._id);
+    await ctx.db.delete(user._id);
+    return null;
   },
 });
 
@@ -366,39 +418,14 @@ export const getCurrentUserProfile = query({
   args: {
     userId: v.optional(v.string()),
   },
-  returns: v.union(
-    v.object({
-      _id: v.id("users"),
-      _creationTime: v.number(),
-      userId: v.string(),
-      handle: v.optional(v.string()),
-      first: v.optional(v.string()),
-      last: v.optional(v.string()),
-      phone: v.optional(v.string()),
-      email: v.optional(v.string()),
-      avatar: v.optional(v.id("_storage")),
-      cover: v.optional(v.id("_storage")),
-      bio: v.optional(v.string()),
-      theme: v.optional(v.string()),
-      avatarUrl: v.optional(v.string()),
-      coverUrl: v.optional(v.string()),
-    }),
-    v.null(),
-  ),
+  returns: v.union(profileValidator, v.null()),
   handler: async (ctx, args) => {
-    let userId = args.userId;
-
-    // Try to get from auth if userId not provided
-    if (!userId) {
-      const user = await ctx.auth.getUserIdentity();
-      if (user) {
-        userId = user.subject;
-      }
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    if (args.userId && args.userId !== identity.subject) {
+      throw new Error("You can only access your own account.");
     }
-
-    if (!userId) {
-      return null;
-    }
+    const userId = identity.subject;
 
     const profile = await ctx.db
       .query("users")
@@ -428,6 +455,10 @@ export const uploadAvatar = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== args.userId) {
+      throw new Error("You can only update your own profile.");
+    }
     const currentUser = await ctx.db
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -456,6 +487,10 @@ export const uploadCover = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity || identity.subject !== args.userId) {
+      throw new Error("You can only update your own profile.");
+    }
     const currentUser = await ctx.db
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -477,24 +512,6 @@ export const uploadCover = mutation({
   },
 });
 
-// Handles reserved for static routes — cannot be claimed by users
-const RESERVED_HANDLES = new Set([
-  "blog",
-  "api",
-  "admin",
-  "dashboard",
-  "settings",
-  "onboarding",
-  "sign-in",
-  "sign-up",
-  "pricing",
-  "about",
-  "terms",
-  "privacy",
-  "help",
-  "support",
-]);
-
 export const setHandle = mutation({
   args: {
     handle: v.string(),
@@ -502,32 +519,26 @@ export const setHandle = mutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    // Block reserved handles that collide with static routes
-    if (RESERVED_HANDLES.has(args.handle.toLowerCase())) {
-      throw new Error("This handle is reserved and cannot be used.");
-    }
-
-    // Try to get user from auth first
-    let userId = args.userId;
-
-    if (!userId) {
-      const user = await getCurrentUser(ctx, true);
-      if (user && typeof user === "string") {
-        userId = user;
-      }
-    }
-
-    if (!userId) {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
       throw new Error("User not found. Please sign in.");
     }
+    if (args.userId && args.userId !== identity.subject) {
+      throw new Error("You can only claim a handle for your own account.");
+    }
+    const userId = identity.subject;
+    const handle = args.handle.trim().toLowerCase();
+    const handleError = getHandleError(handle);
+    if (handleError) throw new Error(handleError);
 
     // Check if handle is unique
     const existingUser = await ctx.db
       .query("users")
-      .withIndex("by_handle", (q) => q.eq("handle", args.handle))
+      .withIndex("by_handle", (q) => q.eq("handle", handle))
       .first();
 
     if (existingUser) {
+      if (existingUser.userId === userId) return existingUser._id;
       throw new Error("Handle is already taken");
     }
 
@@ -541,13 +552,13 @@ export const setHandle = mutation({
       // Create user if doesn't exist
       const newUserId = await ctx.db.insert("users", {
         userId: userId,
-        handle: args.handle,
+        handle,
       });
       return newUserId;
     } else {
       // Update user with handle
       await ctx.db.patch(currentUser._id, {
-        handle: args.handle,
+        handle,
       });
       return currentUser._id;
     }

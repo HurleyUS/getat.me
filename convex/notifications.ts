@@ -1,3 +1,4 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -8,6 +9,7 @@ export const getNotificationSettings = query({
   returns: v.union(
     v.object({
       _id: v.id("notificationSettings"),
+      _creationTime: v.number(),
       userId: v.string(),
       emailNotifications: v.boolean(),
       bookingNotifications: v.boolean(),
@@ -19,6 +21,7 @@ export const getNotificationSettings = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     return await ctx.db
       .query("notificationSettings")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -37,6 +40,7 @@ export const updateNotificationSettings = mutation({
   },
   returns: v.id("notificationSettings"),
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     const existing = await ctx.db
       .query("notificationSettings")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))

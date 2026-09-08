@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -18,14 +18,15 @@ import { PiPaperPlaneTiltLight } from "react-icons/pi";
 
 export function ReferralsTables() {
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
 
   const referralsSent = useQuery(
     api.referrals.getReferralsSent,
-    user?.id ? { userId: user.id } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id } : "skip",
   );
   const referralsReceived = useQuery(
     api.referrals.getReferralsReceived,
-    user?.id ? { userId: user.id } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id } : "skip",
   );
 
   if (!user?.id) {

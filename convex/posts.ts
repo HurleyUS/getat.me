@@ -1,3 +1,4 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
@@ -228,6 +229,7 @@ export const createPost = mutation({
     parentId: v.optional(v.id("posts")),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     // Validate parent exists if this is a reply
     if (args.parentId) {
       const parent = await ctx.db.get(args.parentId);
@@ -252,6 +254,9 @@ export const updatePost = mutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    if (!post) throw new Error("Post not found");
+    await requireOwner(ctx, post.userId);
     await ctx.db.patch(args.postId, { content: args.content });
     return await ctx.db.get(args.postId);
   },
@@ -262,6 +267,9 @@ export const deletePost = mutation({
     postId: v.id("posts"),
   },
   handler: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId);
+    if (!post) throw new Error("Post not found");
+    await requireOwner(ctx, post.userId);
     // Recursively collect all posts to delete (replies, reposts, and their children)
     const postsToDelete: Id<"posts">[] = [];
     const queue: Id<"posts">[] = [args.postId];
@@ -315,6 +323,7 @@ export const likePost = mutation({
     postId: v.id("posts"),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     // Validate post exists
     const post = await ctx.db.get(args.postId);
     if (!post) {
@@ -345,6 +354,7 @@ export const unlikePost = mutation({
     postId: v.id("posts"),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     const existingLike = await ctx.db
       .query("likes")
       .withIndex("by_userId_postId", (q) => q.eq("userId", args.userId).eq("postId", args.postId))
@@ -362,6 +372,7 @@ export const toggleLike = mutation({
     postId: v.id("posts"),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     const existingLike = await ctx.db
       .query("likes")
       .withIndex("by_userId_postId", (q) => q.eq("userId", args.userId).eq("postId", args.postId))
@@ -390,6 +401,7 @@ export const repost = mutation({
     content: v.optional(v.string()), // Optional quote text
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     // Validate the post being reposted exists
     const originalPost = await ctx.db.get(args.postId);
     if (!originalPost) {
@@ -426,6 +438,7 @@ export const undoRepost = mutation({
     postId: v.id("posts"),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     // Find the user's pure repost (no quote content)
     const existingRepost = await ctx.db
       .query("posts")

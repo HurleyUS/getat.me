@@ -460,7 +460,8 @@ export default function ProfilePage() {
               {/* Booking Widget - Only show to visitors when owner has Pro */}
               {!isOwner && userByHandle && (
                 <>
-                  {userByHandle.subscriptionPlan === "pro" && (
+                  {(userByHandle.subscriptionPlan === "pro" ||
+                    userByHandle.subscriptionPlan === "promax") && (
                     <PublicBookingWidget userId={userByHandle.userId} />
                   )}
                 </>

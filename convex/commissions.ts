@@ -1,5 +1,6 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
 
 export const getCommissions = query({
   args: {
@@ -8,6 +9,7 @@ export const getCommissions = query({
   returns: v.array(
     v.object({
       _id: v.id("commissions"),
+      _creationTime: v.number(),
       referrerUserId: v.string(),
       referralId: v.id("referrals"),
       amount: v.number(),
@@ -17,6 +19,7 @@ export const getCommissions = query({
     }),
   ),
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     return await ctx.db
       .query("commissions")
       .withIndex("by_referrerUserId", (q) => q.eq("referrerUserId", args.userId))
@@ -36,6 +39,7 @@ export const getCommissionStats = query({
     count: v.number(),
   }),
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     const commissions = await ctx.db
       .query("commissions")
       .withIndex("by_referrerUserId", (q) => q.eq("referrerUserId", args.userId))
@@ -61,7 +65,7 @@ export const getCommissionStats = query({
   },
 });
 
-export const createCommission = mutation({
+export const createCommission = internalMutation({
   args: {
     referrerUserId: v.string(),
     referralId: v.id("referrals"),
@@ -79,7 +83,7 @@ export const createCommission = mutation({
   },
 });
 
-export const updateCommissionStatus = mutation({
+export const updateCommissionStatus = internalMutation({
   args: {
     commissionId: v.id("commissions"),
     status: v.union(v.literal("pending"), v.literal("paid"), v.literal("cancelled")),

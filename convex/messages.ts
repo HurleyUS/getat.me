@@ -1,3 +1,4 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
@@ -42,6 +43,7 @@ export const getConversations = query({
     userId: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     // Get all messages where user is sender or receiver
     const sentMessages = await ctx.db
       .query("messages")
@@ -127,6 +129,9 @@ export const getMessages = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
+    const actor = await requireOwner(ctx);
+    if (actor !== args.userId1 && actor !== args.userId2)
+      throw new Error("Not a conversation participant");
     const conversationId = getConversationId(args.userId1, args.userId2);
     return await ctx.db
       .query("messages")
@@ -143,6 +148,7 @@ export const sendMessage = mutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.senderUserId);
     const conversationId = getConversationId(args.senderUserId, args.receiverUserId);
 
     return await ctx.db.insert("messages", {
@@ -163,6 +169,9 @@ export const markMessagesAsRead = mutation({
     readerUserId: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.readerUserId);
+    if (args.readerUserId !== args.userId1 && args.readerUserId !== args.userId2)
+      throw new Error("Not a conversation participant");
     const conversationId = getConversationId(args.userId1, args.userId2);
     const messages = await ctx.db
       .query("messages")

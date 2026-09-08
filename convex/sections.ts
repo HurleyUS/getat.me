@@ -1,14 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getCurrentUser } from "./users";
-
-async function getAuthUserId(ctx: any): Promise<string> {
-  const user = await getCurrentUser(ctx, true);
-  if (!user || typeof user !== "string") {
-    throw new Error("Not authenticated");
-  }
-  return user;
-}
+import { requireOwner } from "../lib/convex-auth";
 
 export const getSectionsByHandle = query({
   args: { handle: v.string() },
@@ -52,10 +44,7 @@ export const createSection = mutation({
   },
   returns: v.id("sections"),
   handler: async (ctx, args) => {
-    let userId = args.userId;
-    if (!userId) {
-      userId = await getAuthUserId(ctx);
-    }
+    const userId = await requireOwner(ctx, args.userId);
 
     // Get current max weight
     const existing = await ctx.db
@@ -84,10 +73,7 @@ export const updateSection = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    let userId = args.userId;
-    if (!userId) {
-      userId = await getAuthUserId(ctx);
-    }
+    const userId = await requireOwner(ctx, args.userId);
 
     const section = await ctx.db.get(args.id);
     if (!section || section.userId !== userId) {
@@ -111,10 +97,7 @@ export const deleteSection = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    let userId = args.userId;
-    if (!userId) {
-      userId = await getAuthUserId(ctx);
-    }
+    const userId = await requireOwner(ctx, args.userId);
 
     const section = await ctx.db.get(args.id);
     if (!section || section.userId !== userId) {
@@ -144,10 +127,7 @@ export const reorderSections = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    let userId = args.userId;
-    if (!userId) {
-      userId = await getAuthUserId(ctx);
-    }
+    const userId = await requireOwner(ctx, args.userId);
 
     for (let i = 0; i < args.sectionIds.length; i++) {
       const section = await ctx.db.get(args.sectionIds[i]);

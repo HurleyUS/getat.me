@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -13,10 +13,11 @@ import FeatureTitle from "./feature-title";
 
 export function NotificationsWidget() {
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const { toast } = useToast();
   const settings = useQuery(
     api.notifications.getNotificationSettings,
-    user?.id ? { userId: user.id } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id } : "skip",
   );
   const updateSettings = useMutation(api.notifications.updateNotificationSettings);
 
