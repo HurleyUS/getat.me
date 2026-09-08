@@ -2,6 +2,10 @@ import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  typescript: {
+    // Typechecking is a local pre-push gate; the production Ship workflow sets this flag.
+    ignoreBuildErrors: process.env.NEXT_SKIP_BUILD_TYPECHECK === "1",
+  },
   /* config options here */
   images: {
     remotePatterns: [
