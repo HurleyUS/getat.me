@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useParams, useRouter } from "next/navigation";
@@ -150,19 +150,23 @@ export default function DashboardPage() {
   const handle = params.handle as string;
   const { user: currentUser, isLoaded: userLoaded } = useUser();
   const { has } = useAuth();
+  const { isAuthenticated } = useConvexAuth();
   const [showShare, setShowShare] = useState(false);
 
   // Queries
   const userByHandle = useQuery(api.users.getUserByHandle, { handle });
   const currentUserProfile = useQuery(
     api.users.getCurrentUserProfile,
-    currentUser?.id ? { userId: currentUser.id } : "skip",
+    isAuthenticated ? {} : "skip",
   );
   const analytics = useQuery(
     api.analytics.getAnalytics,
-    currentUser?.id ? { userId: currentUser.id, days: 30 } : "skip",
+    isAuthenticated && currentUser?.id ? { userId: currentUser.id, days: 30 } : "skip",
   );
-  const links = useQuery(api.links.getDashboardLinksByHandle, { handle });
+  const links = useQuery(
+    api.links.getDashboardLinksByHandle,
+    isAuthenticated && userByHandle?.userId === currentUser?.id ? { handle } : "skip",
+  );
 
   // Check if current user owns this profile
   const isOwner = useMemo(() => {
@@ -171,7 +175,14 @@ export default function DashboardPage() {
 
   // Redirect non-owners
   useEffect(() => {
-    if (userLoaded && currentUser && userByHandle !== undefined && !isOwner) {
+    if (
+      isAuthenticated &&
+      userLoaded &&
+      currentUser &&
+      userByHandle !== undefined &&
+      currentUserProfile !== undefined &&
+      !isOwner
+    ) {
       router.push(`/${handle}`);
     }
   }, [userLoaded, currentUser, userByHandle, isOwner, router, handle]);

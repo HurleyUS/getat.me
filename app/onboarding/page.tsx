@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { getHandleError } from "@/lib/handles";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { trackProfileCreated, trackFormSubmit } from "@/lib/analytics";
@@ -46,6 +47,7 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, isLoaded: userLoaded } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const [handle, setHandle] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,34 +55,37 @@ export default function OnboardingPage() {
   // Debounce handle for availability check
   const debouncedHandle = useDebounce(handle, 300);
 
-  const userProfile = useQuery(
-    api.users.getCurrentUserProfile,
-    user?.id ? { userId: user.id } : "skip",
-  );
+  const userProfile = useQuery(api.users.getCurrentUserProfile, isAuthenticated ? {} : "skip");
 
   // Check handle availability
   const handleAvailability = useQuery(
     api.users.getUserByHandle,
-    debouncedHandle.length >= 3 ? { handle: debouncedHandle } : "skip",
+    !getHandleError(debouncedHandle) ? { handle: debouncedHandle } : "skip",
   );
 
   const setHandleMutation = useMutation(api.users.setHandle);
 
   // Derive availability state
-  const isHandleValid = handle.length >= 3 && /^[a-z0-9_-]+$/.test(handle);
-  const isCheckingAvailability = debouncedHandle !== handle && handle.length >= 3;
+  const handleError = getHandleError(handle);
+  const isHandleValid = !handleError;
+  const isCheckingAvailability =
+    isHandleValid && (debouncedHandle !== handle || handleAvailability === undefined);
   const isAvailable = handleAvailability === null && !isCheckingAvailability && isHandleValid;
   const isTaken =
-    handleAvailability !== null && handleAvailability !== undefined && !isCheckingAvailability;
+    isHandleValid &&
+    handleAvailability !== null &&
+    handleAvailability !== undefined &&
+    !isCheckingAvailability;
 
   // Redirect if user already has a handle
-  if (userLoaded && user?.id && userProfile?.handle) {
-    router.push(`/${userProfile.handle}`);
-    return null;
-  }
+  useEffect(() => {
+    if (userLoaded && user?.id && userProfile?.handle) {
+      router.replace(`/${userProfile.handle}`);
+    }
+  }, [userLoaded, user?.id, userProfile?.handle, router]);
 
   // Show loading state while checking user
-  if (!userLoaded || !user?.id) {
+  if (!userLoaded || !user?.id || !isAuthenticated || userProfile === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center space-y-4">
@@ -95,18 +100,9 @@ export default function OnboardingPage() {
     e.preventDefault();
     setError("");
 
-    if (!handle.trim()) {
-      setError("Handle is required");
-      return;
-    }
-
-    if (handle.length < 3) {
-      setError("Handle must be at least 3 characters");
-      return;
-    }
-
-    if (!/^[a-z0-9_-]+$/.test(handle.trim())) {
-      setError("Handle can only contain lowercase letters, numbers, underscores, and hyphens");
+    const validationError = getHandleError(handle.trim().toLowerCase());
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -120,7 +116,6 @@ export default function OnboardingPage() {
     try {
       await setHandleMutation({
         handle: handle.trim().toLowerCase(),
-        userId: user.id,
       });
       // Track profile creation
       trackFormSubmit("onboarding");
@@ -211,6 +206,7 @@ export default function OnboardingPage() {
                   className="pl-8 pr-10 font-mono text-lg h-12"
                   autoFocus
                   autoComplete="off"
+                  maxLength={32}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   {handle.length >= 3 && (
@@ -226,10 +222,8 @@ export default function OnboardingPage() {
               </div>
 
               {/* Status messages */}
-              {handle.length > 0 && handle.length < 3 && (
-                <p className="text-sm text-muted-foreground">
-                  Handle must be at least 3 characters
-                </p>
+              {handle.length > 0 && handleError && (
+                <p className="text-sm text-muted-foreground">{handleError}</p>
               )}
               {isAvailable && (
                 <p className="text-sm text-green-600 flex items-center gap-1">

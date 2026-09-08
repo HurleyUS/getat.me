@@ -1,3 +1,4 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -56,6 +57,7 @@ export const updatePaymentSettings = mutation({
   },
   returns: v.id("paymentSettings"),
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     const existing = await ctx.db
       .query("paymentSettings")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))

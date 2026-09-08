@@ -26,7 +26,9 @@ export function PlanInfo() {
 
   // Determine current plan based on highest tier
   // Since plans are ordered by priority (highest first), find first matching plan
-  const currentPlan = allPlans.find((plan) => has?.({ plan: plan.planKey })) || {
+  const currentPlan = allPlans.find(
+    (plan) => has?.({ plan: plan.slug }) || has?.({ plan: plan.planKey }),
+  ) || {
     name: "FREE",
     price: { annual: "$0/mo", month: "$0/mo" },
   };

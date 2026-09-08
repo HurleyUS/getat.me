@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, usePaginatedQuery, useMutation } from "convex/react";
+import { useQuery, usePaginatedQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { PiChatCircleLight, PiPaperPlaneTiltLight } from "react-icons/pi";
 
 export function MessageThreads() {
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const { toast } = useToast();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -23,7 +24,7 @@ export function MessageThreads() {
 
   const conversations = useQuery(
     api.messages.getConversations,
-    user?.id ? { userId: user.id } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id } : "skip",
   );
 
   const {
@@ -32,7 +33,9 @@ export function MessageThreads() {
     status: paginationStatus,
   } = usePaginatedQuery(
     api.messages.getMessages,
-    user?.id && selectedUserId ? { userId1: user.id, userId2: selectedUserId } : "skip",
+    isAuthenticated && user?.id && selectedUserId
+      ? { userId1: user.id, userId2: selectedUserId }
+      : "skip",
     { initialNumItems: 50 },
   );
 
@@ -57,7 +60,7 @@ export function MessageThreads() {
 
   // Mark messages as read when conversation is selected
   useEffect(() => {
-    if (selectedUserId && user?.id) {
+    if (isAuthenticated && selectedUserId && user?.id) {
       markAsRead({
         userId1: user.id,
         userId2: selectedUserId,

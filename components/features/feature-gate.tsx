@@ -25,33 +25,15 @@ export function FeatureGate({
 }: FeatureGateProps) {
   const { has } = useAuth();
 
-  // Check if user has the required plan or higher tier
-  // Hierarchy: promax > pro > premium
-  const hasAccess = requiredPlan
-    ? (() => {
-        // Development bypass
-        if (process.env.NODE_ENV === "development") return true;
-
-        // Explicit hierarchical checks
-        if (requiredPlan === "promax") {
-          return has?.({ plan: "promax" }) ?? false;
-        }
-
-        if (requiredPlan === "pro") {
-          return (has?.({ plan: "pro" }) ?? false) || (has?.({ plan: "promax" }) ?? false);
-        }
-
-        if (requiredPlan === "premium") {
-          return (
-            (has?.({ plan: "premium" }) ?? false) ||
-            (has?.({ plan: "pro" }) ?? false) ||
-            (has?.({ plan: "promax" }) ?? false)
-          );
-        }
-
-        return false;
-      })()
-    : true;
+  const permittedPlans = {
+    premium: [plans.premium.slug, "premium", "pro", "promax"],
+    pro: ["pro", "promax"],
+    promax: ["promax"],
+  };
+  const hasAccess =
+    !requiredPlan ||
+    process.env.NODE_ENV === "development" ||
+    permittedPlans[requiredPlan].some((plan) => has?.({ plan }));
 
   if (hasAccess && children) {
     return <>{children}</>;

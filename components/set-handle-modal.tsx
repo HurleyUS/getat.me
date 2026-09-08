@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { getHandleError } from "@/lib/handles";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +16,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User } from "@/convex/schema";
 
 export function SetHandleModal() {
   const [handle, setHandle] = useState("");
@@ -23,10 +23,8 @@ export function SetHandleModal() {
   const [isChecking, setIsChecking] = useState(false);
 
   const { isSignedIn, user, isLoaded: userLoaded } = useUser();
-  const userProfile = useQuery(
-    api.users.getCurrentUserProfile,
-    user?.id ? { userId: user.id } : "skip",
-  );
+  const { isAuthenticated } = useConvexAuth();
+  const userProfile = useQuery(api.users.getCurrentUserProfile, isAuthenticated ? {} : "skip");
   const setHandleMutation = useMutation(api.users.setHandle);
 
   // Don't show modal if user is not signed in or not loaded
@@ -34,16 +32,16 @@ export function SetHandleModal() {
     !userLoaded ||
     !isSignedIn ||
     !user?.id ||
-    userProfile !== null ||
-    (userProfile !== null && (userProfile as User).handle)
+    !isAuthenticated ||
+    userProfile === undefined ||
+    userProfile?.handle
   )
     return <></>;
 
   // Show modal only when we know for sure the user doesn't have a handle
   // userProfile === null means user doesn't exist in Convex yet
   // userProfile?.handle is falsy means user exists but has no handle
-  const shouldShowModal =
-    userLoaded && isSignedIn && (userProfile === null || !(userProfile as User).handle);
+  const shouldShowModal = userLoaded && isSignedIn && isAuthenticated && !userProfile?.handle;
 
   if (!shouldShowModal) return <></>;
 
@@ -52,15 +50,9 @@ export function SetHandleModal() {
     setError("");
     setIsChecking(true);
 
-    if (!handle.trim()) {
-      setError("Handle is required");
-      setIsChecking(false);
-      return;
-    }
-
-    // Check handle format (alphanumeric, underscore, hyphen)
-    if (!/^[a-z0-9_-]+$/.test(handle.trim())) {
-      setError("Handle can only contain lowercase letters, numbers, underscores, and hyphens");
+    const validationError = getHandleError(handle.trim().toLowerCase());
+    if (validationError) {
+      setError(validationError);
       setIsChecking(false);
       return;
     }
@@ -68,7 +60,6 @@ export function SetHandleModal() {
     try {
       await setHandleMutation({
         handle: handle.trim().toLowerCase(),
-        userId: user?.id,
       });
       // Clear form - modal will disappear when query updates
       setHandle("");
@@ -102,6 +93,7 @@ export function SetHandleModal() {
                 placeholder="yourhandle"
                 disabled={isChecking}
                 className="font-mono"
+                maxLength={32}
               />
               {error && <p className="text-sm text-destructive">{error}</p>}
               <p className="text-xs text-muted-foreground">

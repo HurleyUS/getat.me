@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -25,13 +25,14 @@ function formatCurrency(amount: number, currency: string = "USD"): string {
 
 export function CommissionsDashboard() {
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const commissions = useQuery(
     api.commissions.getCommissions,
-    user?.id ? { userId: user.id } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id } : "skip",
   );
   const stats = useQuery(
     api.commissions.getCommissionStats,
-    user?.id ? { userId: user.id } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id } : "skip",
   );
 
   if (!user?.id) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useQuery, usePaginatedQuery, useMutation } from "convex/react";
+import { useQuery, usePaginatedQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,11 @@ import { useToast } from "@/hooks/use-toast";
 
 export function LiveMessagingWidget() {
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const { toast } = useToast();
   const conversations = useQuery(
     api.messages.getConversations,
-    user?.id ? { userId: user.id } : "skip",
+    isAuthenticated && user?.id ? { userId: user.id } : "skip",
   );
   const sendMessage = useMutation(api.messages.sendMessage);
   const markAsRead = useMutation(api.messages.markMessagesAsRead);
@@ -30,7 +31,7 @@ export function LiveMessagingWidget() {
     status: paginationStatus,
   } = usePaginatedQuery(
     api.messages.getMessages,
-    user?.id && selectedConversation
+    isAuthenticated && user?.id && selectedConversation
       ? {
           userId1: user.id,
           userId2: selectedConversation,

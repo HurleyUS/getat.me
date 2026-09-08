@@ -1,3 +1,4 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 
@@ -48,6 +49,7 @@ export const updateBookingAvailability = mutation({
     sunday: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     const existing = await ctx.db
       .query("bookingAvailability")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -110,7 +112,7 @@ export const getAppointments = query({
     endDate: v.string(), // ISO date string
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const appointments = await ctx.db
       .query("appointments")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .filter((q) =>
@@ -120,6 +122,12 @@ export const getAppointments = query({
         ),
       )
       .collect();
+    // Public availability must not disclose customer names or contact details.
+    return appointments.map(({ appointmentDate, appointmentTime, status }) => ({
+      appointmentDate,
+      appointmentTime,
+      status,
+    }));
   },
 });
 
@@ -128,6 +136,7 @@ export const getAllAppointments = query({
     userId: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     const appointments = await ctx.db
       .query("appointments")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -153,6 +162,11 @@ export const createAppointment = mutation({
     appointmentTime: v.string(),
   },
   handler: async (ctx, args) => {
+    const availability = await ctx.db
+      .query("bookingAvailability")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (!availability?.enabled) throw new Error("This profile is not accepting bookings");
     // Input validation
     const name = args.name.trim();
     if (name.length < 2 || name.length > 100) {
@@ -222,6 +236,7 @@ export const cancelAppointment = mutation({
     if (!appointment) {
       throw new Error("Appointment not found");
     }
+    await requireOwner(ctx, appointment.userId);
 
     await ctx.db.patch(args.appointmentId, { status: "cancelled" });
     return appointment;
@@ -237,6 +252,7 @@ export const rescheduleAppointment = mutation({
     if (!appointment) {
       throw new Error("Appointment not found");
     }
+    await requireOwner(ctx, appointment.userId);
 
     // Mark as cancelled (which frees up the slot)
     await ctx.db.patch(args.appointmentId, { status: "cancelled" });

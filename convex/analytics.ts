@@ -1,3 +1,4 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -23,6 +24,7 @@ export const getAnalytics = query({
     ),
   }),
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     const days = args.days ?? 30;
     const startTime = Date.now() - days * 24 * 60 * 60 * 1000;
 

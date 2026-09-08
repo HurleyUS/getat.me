@@ -1,3 +1,4 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -38,6 +39,7 @@ export const createRecommendation = mutation({
     review: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.recommenderUserId);
     // Check if recommendation already exists
     const existing = await ctx.db
       .query("recommendations")

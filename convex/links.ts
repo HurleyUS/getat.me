@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getCurrentUser } from "./users";
+import { requireOwner } from "../lib/convex-auth";
 
 export const createLink = mutation({
   args: {
@@ -16,18 +16,10 @@ export const createLink = mutation({
   },
   returns: v.id("links"),
   handler: async (ctx, args) => {
-    // Try to get user from auth if userId not provided
-    let userId = args.userId;
-
-    if (!userId) {
-      const user = await getCurrentUser(ctx, true);
-      if (user && typeof user === "string") {
-        userId = user;
-      }
-    }
-
-    if (!userId) {
-      throw new Error("User not found. Please sign in.");
+    const userId = await requireOwner(ctx, args.userId);
+    if (args.sectionId) {
+      const section = await ctx.db.get(args.sectionId);
+      if (section?.userId !== userId) throw new Error("Section not found");
     }
 
     return await ctx.db.insert("links", {
@@ -60,7 +52,7 @@ export const getUserLinksByHandle = query({
 
     const links = await ctx.db
       .query("links")
-      .filter((q) => q.eq(q.field("userId"), user.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user.userId))
       .collect();
 
     // Filter out links that aren't live (for public view)
@@ -96,9 +88,10 @@ export const getDashboardLinksByHandle = query({
       throw new Error("User not found");
     }
 
+    await requireOwner(ctx, user.userId);
     const links = await ctx.db
       .query("links")
-      .filter((q) => q.eq(q.field("userId"), user.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user.userId))
       .collect();
 
     // Sort by weight (lower weight = higher priority), then by creation time
@@ -129,18 +122,10 @@ export const updateLink = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Try to get user from auth if userId not provided
-    let userId = args.userId;
-
-    if (!userId) {
-      const user = await getCurrentUser(ctx, true);
-      if (user && typeof user === "string") {
-        userId = user;
-      }
-    }
-
-    if (!userId) {
-      throw new Error("User not found. Please sign in.");
+    const userId = await requireOwner(ctx, args.userId);
+    if (args.sectionId) {
+      const section = await ctx.db.get(args.sectionId);
+      if (section?.userId !== userId) throw new Error("Section not found");
     }
 
     const link = await ctx.db.get(args.id);
@@ -179,19 +164,7 @@ export const deleteLink = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Try to get user from auth if userId not provided
-    let userId = args.userId;
-
-    if (!userId) {
-      const user = await getCurrentUser(ctx, true);
-      if (user && typeof user === "string") {
-        userId = user;
-      }
-    }
-
-    if (!userId) {
-      throw new Error("User not found. Please sign in.");
-    }
+    const userId = await requireOwner(ctx, args.userId);
 
     const link = await ctx.db.get(args.id);
 
@@ -215,19 +188,7 @@ export const reorderLinks = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Try to get user from auth if userId not provided
-    let userId = args.userId;
-
-    if (!userId) {
-      const user = await getCurrentUser(ctx, true);
-      if (user && typeof user === "string") {
-        userId = user;
-      }
-    }
-
-    if (!userId) {
-      throw new Error("User not found. Please sign in.");
-    }
+    const userId = await requireOwner(ctx, args.userId);
 
     // Update each link with its new weight based on array position
     for (let i = 0; i < args.linkIds.length; i++) {

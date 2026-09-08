@@ -3,19 +3,17 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 export default function AccountPage() {
   const router = useRouter();
   const { user, isLoaded: userLoaded } = useUser();
-  const userProfile = useQuery(
-    api.users.getCurrentUserProfile,
-    user?.id ? { userId: user.id } : "skip",
-  );
+  const { isAuthenticated } = useConvexAuth();
+  const userProfile = useQuery(api.users.getCurrentUserProfile, isAuthenticated ? {} : "skip");
 
   useEffect(() => {
-    if (!userLoaded || !user?.id) {
+    if (!userLoaded || !user?.id || !isAuthenticated) {
       return;
     }
 
@@ -32,7 +30,7 @@ export default function AccountPage() {
 
     // If user doesn't have a handle, redirect to onboarding
     router.push("/onboarding");
-  }, [userLoaded, user?.id, userProfile, router]);
+  }, [userLoaded, user?.id, isAuthenticated, userProfile, router]);
 
   // Show loading state while checking
   return (

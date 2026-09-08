@@ -1,3 +1,4 @@
+import { requireOwner } from "../lib/convex-auth";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
@@ -9,6 +10,7 @@ export const getVerification = query({
   returns: v.union(
     v.object({
       _id: v.id("verifications"),
+      _creationTime: v.number(),
       userId: v.string(),
       type: v.union(v.literal("verified"), v.literal("vetted")),
       status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
@@ -24,10 +26,16 @@ export const getVerification = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    return await ctx.db
+    const verification = await ctx.db
       .query("verifications")
       .withIndex("by_userId_type", (q) => q.eq("userId", args.userId).eq("type", args.type))
       .first();
+    if (!verification) return null;
+    const identity = await ctx.auth.getUserIdentity();
+    return {
+      ...verification,
+      applicationData: identity?.subject === args.userId ? verification.applicationData : undefined,
+    };
   },
 });
 
@@ -88,6 +96,7 @@ export const applyForVerification = mutation({
   },
   returns: v.id("verifications"),
   handler: async (ctx, args) => {
+    await requireOwner(ctx, args.userId);
     // Check if application already exists
     const existing = await ctx.db
       .query("verifications")
