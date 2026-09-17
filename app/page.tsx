@@ -46,7 +46,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SignedIn, SignedOut, SignUpButton } from "@clerk/nextjs";
 import AddPostForm from "@/components/forms/user/add-post";
 import { Container } from "@/components/layout/container";
-import { PostsList } from "@/components/views/posts/list-all";
+import { HomeFeed } from "@/components/views/posts/home-feed";
 import {
   PiPaletteLight,
   PiLinkLight,
@@ -313,7 +313,7 @@ export default function HomePage() {
         <Container size="boxed" className="space-y-6 pt-20 justify-start items-stretch w-full">
           <h1>Welcome back!</h1>
           <AddPostForm />
-          <PostsList />
+          <HomeFeed />
         </Container>
       </SignedIn>
     </>

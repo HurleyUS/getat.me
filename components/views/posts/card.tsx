@@ -25,7 +25,7 @@ import {
 } from "react-icons/pi";
 import { PostWithMeta } from "@/convex/posts";
 import Handle from "../../profile/public/handle";
-import { type User, useUser } from "@/hooks/user";
+import { type User } from "@/hooks/user";
 
 interface PostCardProps {
   post: PostWithMeta;
@@ -56,8 +56,13 @@ export function PostCard({ post, onReplyCreated, isReply = false, depth = 0 }: P
     showReplies ? { postId: post._id, currentUserId: auth?.user?.id } : "skip",
   );
 
-  const { user: postUser } = useUser(post.userId);
-  const { user: repostOriginalUser } = useUser(post.repostOf?.userId ?? "");
+  // Slim author lookup — avoid useUser() which fans out getUserByID + 2
+  // verification SyncWorker subscriptions per card (egress multiplier).
+  const postUser = useQuery(api.users.getUserByID, { userId: post.userId });
+  const repostOriginalUser = useQuery(
+    api.users.getUserByID,
+    post.repostOf?.userId ? { userId: post.repostOf.userId } : "skip",
+  );
 
   // For reposts, determine if we should show the original content
   const isRepost = !!post.repostOfId && !!post.repostOf;
@@ -245,11 +250,11 @@ export function PostCard({ post, onReplyCreated, isReply = false, depth = 0 }: P
             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
               <PiArrowsClockwiseLight className="h-3 w-3" />
               <span>
-                <Handle user={postUser} inline /> reposted
+                <Handle user={postUser as User} inline /> reposted
               </span>
             </div>
           )}
-          <Handle user={isRepost ? repostOriginalUser : postUser} />
+          <Handle user={(isRepost ? repostOriginalUser : postUser) as User} />
         </CardTitle>
       </CardHeader>
       <CardContent>

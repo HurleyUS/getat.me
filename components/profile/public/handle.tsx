@@ -13,7 +13,7 @@ export default function Handle({
   children,
   ...props
 }: {
-  user: User;
+  user: User | null | undefined;
   withAvatar?: boolean;
   inline?: boolean;
   className?: string;

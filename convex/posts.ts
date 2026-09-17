@@ -21,29 +21,34 @@ export type PostWithMeta = Post & {
 export const getPosts = query({
   args: {
     userId: v.string(),
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
     return await ctx.db
       .query("posts")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .filter((q) => q.eq(q.field("parentId"), undefined)) // Only top-level posts
       .order("desc")
-      .collect();
+      .take(limit);
   },
 });
 
 export const getAllPosts = query({
   args: {
     currentUserId: v.optional(v.string()),
+    /** Hard cap — full-table collect + enrichment was the SyncWorker egress bomb. */
+    limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
     const posts = await ctx.db
       .query("posts")
       .filter((q) => q.eq(q.field("parentId"), undefined)) // Only top-level posts
       .order("desc")
-      .collect();
+      .take(limit);
 
-    // Enrich with metadata
+    // Enrich with metadata (bounded by limit above)
     const enrichedPosts: PostWithMeta[] = await Promise.all(
       posts.map(async (post) => {
         const [likeCount, replyCount, repostCount, userLike, userRepost, repostOf] =
