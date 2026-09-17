@@ -133,6 +133,10 @@ export default defineSchema({
     parentId: v.optional(v.id("posts")), // For replies/threads
     repostOfId: v.optional(v.id("posts")), // For reposts (quote or pure repost)
     createdAt: v.number(),
+    // Legacy denormalized counters present on restored prod docs
+    likeCount: v.optional(v.number()),
+    replyCount: v.optional(v.number()),
+    repostCount: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_parentId", ["parentId"])
