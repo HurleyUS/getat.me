@@ -13,12 +13,15 @@ export function PostsList({
   user?: User;
   currentUserId?: string;
 }) {
-  const userPosts = useQuery(api.posts.getPosts, {
-    userId: user?.id ?? "",
-  });
-  const allPosts = useQuery(api.posts.getAllPosts, {
-    currentUserId: currentUserId,
-  });
+  const userPosts = useQuery(
+    api.posts.getPosts,
+    user?.id ? { userId: user.id } : "skip",
+  );
+  // Global feed only — profile pages must not also subscribe to getAllPosts.
+  const allPosts = useQuery(
+    api.posts.getAllPosts,
+    user ? "skip" : { currentUserId, limit: 20 },
+  );
 
   const posts = user ? userPosts : allPosts;
 
